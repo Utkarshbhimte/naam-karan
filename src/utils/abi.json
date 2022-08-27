@@ -1,60 +1,39 @@
 [
 	{
-		"inputs": [],
-		"stateMutability": "payable",
-		"type": "constructor"
-	},
-	{
-		"anonymous": false,
 		"inputs": [
 			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "sender",
-				"type": "address"
+				"internalType": "bytes32[]",
+				"name": "proof",
+				"type": "bytes32[]"
 			},
 			{
-				"indexed": false,
-				"internalType": "string",
-				"name": "purpose",
-				"type": "string"
+				"internalType": "bytes32",
+				"name": "leaf",
+				"type": "bytes32"
 			}
 		],
-		"name": "SetPurpose",
-		"type": "event"
-	},
-	{
-		"stateMutability": "payable",
-		"type": "fallback"
-	},
-	{
-		"inputs": [],
-		"name": "purpose",
+		"name": "isValid",
 		"outputs": [
 			{
-				"internalType": "string",
+				"internalType": "bool",
 				"name": "",
-				"type": "string"
+				"type": "bool"
 			}
 		],
 		"stateMutability": "view",
 		"type": "function"
 	},
 	{
-		"inputs": [
+		"inputs": [],
+		"name": "root",
+		"outputs": [
 			{
-				"internalType": "string",
-				"name": "newPurpose",
-				"type": "string"
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
 			}
 		],
-		"name": "setPurpose",
-		"outputs": [],
-		"stateMutability": "nonpayable",
+		"stateMutability": "view",
 		"type": "function"
-	},
-	{
-		"stateMutability": "payable",
-		"type": "receive"
 	}
 ]
