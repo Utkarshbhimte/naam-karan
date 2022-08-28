@@ -39,6 +39,12 @@ contract ENSDeployer {
 		// Construct a new reverse registrar and point it at the public resolver
 		reverseRegistrar = new ReverseRegistrar(ens);
 
+		/* 
+			ETHRegistrarController requires six arguments which I could not figure out what they are or are they even required here.
+			https://github.com/ensdomains/ens-contracts/blob/7b303495171edf173e84089732c82b53a955b9cf/deploy/ethregistrar/03_deploy_eth_registrar_controller.ts#L15
+
+			Those arguments would require more contracts to be included here and hence I ma pausing before going down the rabbit hole.		
+		 */
 		registrarController = new ETHRegistrarController(ens);
 
 		// ENS _ens, INameWrapper wrapperAddress, address _trustedETHController, address _trustedReverseRegistrar
