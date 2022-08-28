@@ -1,27 +1,51 @@
-pragma solidity >=0.8.0 <0.9.0;
-//SPDX-License-Identifier: MIT
+pragma solidity >=0.8.4;
+import { INameWrapper, PublicResolver } from '@ensdomains/ens-contracts/contracts/resolvers/PublicResolver.sol';
+import '@ensdomains/ens-contracts/contracts/registry/ENSRegistry.sol';
+import '@ensdomains/ens-contracts/contracts/registry/FIFSRegistrar.sol';
+import '@ensdomains/ens-contracts/contracts/ethregistrar/ETHRegistrarController.sol';
+import { NameResolver, ReverseRegistrar } from '@ensdomains/ens-contracts/contracts/registry/ReverseRegistrar.sol';
 
-import "hardhat/console.sol";
-// import "@openzeppelin/contracts/access/Ownable.sol"; 
-// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
+// Construct a set of test ENS contracts.
+contract ENSDeployer {
+	bytes32 public constant TLD_LABEL = keccak256('eth');
+	bytes32 public constant RESOLVER_LABEL = keccak256('resolver');
+	bytes32 public constant REVERSE_REGISTRAR_LABEL = keccak256('reverse');
+	bytes32 public constant ADDR_LABEL = keccak256('addr');
 
-contract YourContract {
+	ENSRegistry public ens;
+	FIFSRegistrar public fifsRegistrar;
+	ReverseRegistrar public reverseRegistrar;
+	PublicResolver public publicResolver;
 
-  event SetPurpose(address sender, string purpose);
+	function namehash(bytes32 node, bytes32 label) public pure returns (bytes32) {
+		return keccak256(abi.encodePacked(node, label));
+	}
 
-  string public purpose = "Building Unstoppable Apps!!!";
+	constructor() public {
+		ens = new ENSRegistry();
 
-  constructor() payable {
-    // what should we do on deploy?
-  }
+		// Set up the resolver
+		bytes32 resolverNode = namehash(bytes32(0), RESOLVER_LABEL);
 
-  function setPurpose(string memory newPurpose) public {
-      purpose = newPurpose;
-      console.log(msg.sender,"set purpose to",purpose);
-      emit SetPurpose(msg.sender, purpose);
-  }
+		ens.setSubnodeOwner(bytes32(0), RESOLVER_LABEL, address(this));
+		ens.setResolver(resolverNode, address(publicResolver));
+		publicResolver.setAddr(resolverNode, address(publicResolver));
 
-  // to support receiving ETH by default
-  receive() external payable {}
-  fallback() external payable {}
+		// Create a FIFS registrar for the TLD
+		fifsRegistrar = new FIFSRegistrar(ens, namehash(bytes32(0), TLD_LABEL));
+
+		ens.setSubnodeOwner(bytes32(0), TLD_LABEL, address(fifsRegistrar));
+
+		// Construct a new reverse registrar and point it at the public resolver
+		reverseRegistrar = new ReverseRegistrar(ens);
+
+		registrarController = new ETHRegistrarController(ens);
+
+		// ENS _ens, INameWrapper wrapperAddress, address _trustedETHController, address _trustedReverseRegistrar
+		publicResolver = new PublicResolver(ens, INameWrapper(address(0), registrarController, reverseRegistrar));
+
+		// Set up the reverse registrar
+		ens.setSubnodeOwner(bytes32(0), REVERSE_REGISTRAR_LABEL, address(this));
+		ens.setSubnodeOwner(namehash(bytes32(0), REVERSE_REGISTRAR_LABEL), ADDR_LABEL, address(reverseRegistrar));
+	}
 }
