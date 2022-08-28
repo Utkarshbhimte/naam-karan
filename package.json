@@ -9,6 +9,7 @@
 		"lint": "next lint"
 	},
 	"dependencies": {
+		"@ensdomains/ens-contracts": "^0.0.12",
 		"@heroicons/react": "^1.0.6",
 		"autoprefixer": "^10.4.7",
 		"bnc-notify": "^1.9.5",
