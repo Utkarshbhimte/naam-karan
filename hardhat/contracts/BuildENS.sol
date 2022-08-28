@@ -2,6 +2,8 @@
 
 //SPDX-License-Identifier: MIT
 
+// Forked from: lilnouns.eth subdomain registrar contract
+// https://etherscan.io/address/0x27c4f6ff6935537c9cc05f4eb40e666d8f328918#code
 
 
 //Twitter: @hodl_pcc
@@ -22,11 +24,11 @@ contract Build is Ownable {
 
     using Strings for uint256;
 
-    bytes32 public root;
+    bytes32 public merkleRootHash;
     address constant REVERSE_RESOLVER_ADDRESS = 0x084b1c3C81545d370f3634392De611CaaBFf8148;
 
     IReverseResolver constant public ReverseResolver = IReverseResolver(REVERSE_RESOLVER_ADDRESS);
-    ENS constant private ens = ENS(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);    
+    ENS constant private ens = ENS(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
 
     // use merkle root instead of nft
     // IERC721 constant public nft = IERC721(0x4b10701Bfd7BFEdc47d50562b76b436fbB5BdB3B);
@@ -40,7 +42,7 @@ contract Build is Ownable {
     string constant public domainLabel = "buildonchain";
 
     mapping(bytes32 => uint256) public hashToIdMap;
-    mapping(uint256 => bytes32) public tokenHashmap;
+    mapping(uint256 => bytes32) public tokenHashmap; // @rohit need to replace tokenHashmap >> addressHashmap
     mapping(bytes32 => string) public hashToDomainMap;
 
     
@@ -76,9 +78,9 @@ contract Build is Ownable {
 
     // @rohit need to check this out, what can we return from this?
     function addr(bytes32 nodeID) public view returns (address) {
-        uint256 token_id = hashToIdMap[nodeID];
-        require(tokenHashmap[token_id] != 0x0, "Invalid address");
-        return nft.ownerOf(token_id);
+        address currUser = hashToIdMap[nodeID];
+        require(tokenHashmap[currUser] != 0x0, "Invalid address");
+        return tokenHashmap[currUser];
     }  
 
     function name(bytes32 node) view public returns (string memory){
@@ -204,11 +206,11 @@ contract Build is Ownable {
     }
 
     function updateRoot(bytes32 _root) public onlyOwner {
-        root = _root;
+        merkleRootHash = _root;
     }
 
     function isValid(bytes32[] memory proof, bytes32 leaf) public view returns (bool) {
-        return MerkleProof.verify(proof, root, leaf);
+        return MerkleProof.verify(proof, merkleRootHash, leaf);
     }
 
 }
