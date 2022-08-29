@@ -34,11 +34,10 @@ contract Build is Ownable {
 	// IERC721 constant public nft = IERC721(0x4b10701Bfd7BFEdc47d50562b76b436fbB5BdB3B);
 
 	// lilnouns domain ??
-	bytes32 public constant domainHash =
-		0x524060b540a9ca20b59a94f7b32d64ebdbeedc42dfdc7aac115003633593b492;
+	bytes32 public domainHash;
 	mapping(bytes32 => mapping(string => string)) public texts;
 
-	string public constant domainLabel = "buildonchain";
+	string public domainLabel = "istestingon";
 
 	mapping(bytes32 => address) public hashToAddressMap;
 	mapping(address => bytes32) public addressHashmap; // @rohit need to replace tokenHashmap >> addressHashmap
@@ -54,6 +53,14 @@ contract Build is Ownable {
 	event AddrChanged(bytes32 indexed node, address a);
 
 	constructor() {}
+
+    function updateDomainHash(bytes32 _domainHash) public {
+        domainHash = _domainHash;
+    }
+
+    function updateDomainLabel(string memory _domainLabel) public {
+        domainLabel = _domainLabel;
+    }
 
 	//<interface-functions>
 	function supportsInterface(bytes4 interfaceID) public pure returns (bool) {
@@ -115,14 +122,14 @@ contract Build is Ownable {
 	//--------------------------------------------------------------------------------------------//
 
 	//<authorised-functions>
-	function claimSubdomain(string calldata label, bytes32[] calldata proof)
+	function claimSubdomain(string calldata label)
 		public
-		isAuthorised(proof)
+		// isAuthorised(proof)
 	{
-		require(
-			addressHashmap[msg.sender] == 0x0,
-			"Token has already been set"
-		);
+		// require(
+		// 	addressHashmap[msg.sender] == 0x0,
+		// 	"Token has already been set"
+		// );
 
 		bytes32 encoded_label = keccak256(abi.encodePacked(label));
 		bytes32 big_hash = keccak256(
@@ -130,10 +137,10 @@ contract Build is Ownable {
 		);
 
 		//ens.recordExists seems to not be reliable (tested removing records through ENS control panel and this still returns true)
-		require(
-			!ens.recordExists(big_hash) || msg.sender == owner(),
-			"sub-domain already exists"
-		);
+		// require(
+		// 	!ens.recordExists(big_hash) || msg.sender == owner(),
+		// 	"sub-domain already exists"
+		// );
 
 		ens.setSubnodeRecord(
 			domainHash,
@@ -158,7 +165,9 @@ contract Build is Ownable {
 		string calldata key,
 		string calldata value,
         bytes32[] calldata proof
-	) external isAuthorised(proof) {
+	) external 
+    // isAuthorised(proof) 
+    {
         // previously modifier -> isAuthorised(hashToAddressMap[node])
 		address currentAddress = hashToAddressMap[node];
 		require(addressHashmap[currentAddress] != 0x0, "Invalid address");
@@ -171,7 +180,9 @@ contract Build is Ownable {
 		ReverseResolver.setName(_name);
 	}
 
-	function resetHash(bytes32[] calldata proof) public isAuthorised(proof) {
+	function resetHash(bytes32[] calldata proof) public 
+    // isAuthorised(proof) 
+    {
 		bytes32 domainHash = addressHashmap[msg.sender];
 		require(ens.recordExists(domainHash), "Sub-domain does not exist");
 
@@ -196,29 +207,29 @@ contract Build is Ownable {
 
 	//</owner-functions>
 
-    modifier isUserAuthorised() {
-        require(owner() == msg.sender, "Functin in building");
-        _;
-    }
+    // modifier isUserAuthorised() {
+    //     require(owner() == msg.sender, "Functin in building");
+    //     _;
+    // }
 
-	modifier isAuthorised(bytes32[] calldata proof) {
-		require(
-			owner() == msg.sender ||
-				isValid(proof, keccak256(abi.encodePacked(msg.sender))),
-			"Not authorised"
-		);
-		_;
-	}
+	// modifier isAuthorised(bytes32[] calldata proof) {
+	// 	require(
+	// 		owner() == msg.sender ||
+	// 			isValid(proof, keccak256(abi.encodePacked(msg.sender))),
+	// 		"Not authorised"
+	// 	);
+	// 	_;
+	// }
 
-	function updateRoot(bytes32 _root) public onlyOwner {
-		merkleRootHash = _root;
-	}
+	// function updateRoot(bytes32 _root) public onlyOwner {
+	// 	merkleRootHash = _root;
+	// }
 
-	function isValid(bytes32[] memory proof, bytes32 leaf)
-		public
-		view
-		returns (bool)
-	{
-		return MerkleProof.verify(proof, merkleRootHash, leaf);
-	}
+	// function isValid(bytes32[] memory proof, bytes32 leaf)
+	// 	public
+	// 	view
+	// 	returns (bool)
+	// {
+	// 	return MerkleProof.verify(proof, merkleRootHash, leaf);
+	// }
 }
