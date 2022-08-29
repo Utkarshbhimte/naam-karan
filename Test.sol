@@ -107,39 +107,7 @@ contract Build is Ownable {
 			abi.encodePacked(domainHash, encoded_label)
 		);
 
-		return bool(hashToAddressMap[big_hash]) ? big_hash : bytes32(0x0);
-	}
-
-	function getTokenDomain(uint256 token_id)
-		private
-		view
-		returns (string memory uri)
-	{
-		require(
-			addressHashmap[token_id] != 0x0,
-			"Token does not have an ENS register"
-		);
-		uri = string(
-			abi.encodePacked(
-				hashToDomainMap[addressHashmap[token_id]],
-				".",
-				domainLabel,
-				".eth"
-			)
-		);
-	}
-
-	// @rohit need to maintain a map of uint <> address
-	function getTokensDomains(uint256[] memory token_ids)
-		external
-		view
-		returns (string[] memory)
-	{
-		string[] memory uris = new string[](token_ids.length);
-		for (uint256 i; i < token_ids.length; i++) {
-			uris[i] = getTokenDomain(token_ids[i]);
-		}
-		return uris;
+		return hashToAddressMap[big_hash] != address(0) ? big_hash : bytes32(0x0);
 	}
 
 	//</read-functions>
@@ -188,8 +156,10 @@ contract Build is Ownable {
 	function setText(
 		bytes32 node,
 		string calldata key,
-		string calldata value
-	) external isAuthorised(hashToAddressMap[node]) {
+		string calldata value,
+        bytes32[] calldata proof
+	) external isAuthorised(proof) {
+        // previously modifier -> isAuthorised(hashToAddressMap[node])
 		address currentAddress = hashToAddressMap[node];
 		require(addressHashmap[currentAddress] != 0x0, "Invalid address");
 
@@ -225,6 +195,11 @@ contract Build is Ownable {
 	}
 
 	//</owner-functions>
+
+    modifier isUserAuthorised() {
+        require(owner() == msg.sender, "Functin in building");
+        _;
+    }
 
 	modifier isAuthorised(bytes32[] calldata proof) {
 		require(
