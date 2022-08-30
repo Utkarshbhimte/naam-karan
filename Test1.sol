@@ -37,6 +37,7 @@ contract ENSSubdomain is Ownable {
 	// lilnouns domain ??
 	bytes32 public constant domainHash =
 		0xad1a6da3cc06e58ea001eca64ff32d6871edf6108b38ffb3e0de3bf9472302cc;
+	uint256 private constant COIN_TYPE_ETH = 60;
 
 	mapping(bytes32 => mapping(string => string)) public texts;
 
@@ -45,6 +46,7 @@ contract ENSSubdomain is Ownable {
 	mapping(bytes32 => address) public hashToAddressMap;
 	mapping(address => bytes32) public addressToHashmap;
 	mapping(bytes32 => string) public hashToDomainMap;
+	mapping(bytes32 => mapping(uint256 => address)) public addressMap; // Used for storing addresses
 
 	event TextChanged(
 		bytes32 indexed node,
@@ -54,6 +56,11 @@ contract ENSSubdomain is Ownable {
 	event RegisterSubdomain(address indexed registrar, string indexed label);
 
 	event AddrChanged(bytes32 indexed node, address a);
+	event AddressChanged(
+		bytes32 indexed node,
+		uint256 coinType,
+		bytes newAddress
+	);
 
 	constructor() {}
 
@@ -64,6 +71,24 @@ contract ENSSubdomain is Ownable {
 			interfaceID == 0x59d1d43c || //text
 			interfaceID == 0x691f3431 || //name
 			interfaceID == 0x01ffc9a7; //supportsInterface << [inception]
+	}
+
+	function addressToBytes(address a) internal pure returns (bytes memory b) {
+		b = new bytes(20);
+		assembly {
+			mstore(add(b, 32), mul(a, exp(256, 12)))
+		}
+	}
+
+	function bytesToAddress(bytes memory b)
+		internal
+		pure
+		returns (address payable a)
+	{
+		require(b.length == 20);
+		assembly {
+			a := div(mload(add(b, 32)), exp(256, 12))
+		}
 	}
 
 	function text(bytes32 node, string calldata key)
@@ -77,12 +102,84 @@ contract ENSSubdomain is Ownable {
 	}
 
 	// // @rohit need to check this out, what can we return from this?
-	// function addr(bytes32 nodeID) public view returns (address) {
-	// 	address currentAddress = hashToAddressMap[nodeID];
-	// 	require(addressToHashmap[currentAddress] != 0x0, "Invalid address");
-	// 	return addressToHashmap[currentAddress];
+	function addr(bytes32 node, uint256 key) public view returns (address) {
+		return addressMap[node][key];
+	}
+
+	// CHECK IF AUTORIZED
+	// function setAddr(
+	// 	bytes32 node,
+	// 	string calldata key,
+	// 	address a
+	// ) public view returns (address) {
+	// 	require(
+	// 		addressToHashmap[msg.sender] == node,
+	// 		"Not the owner of the domain"
+	// 	);
+	// 	addressMap[node][key] = a;
+	// 	emit AddrChanged(node, a);
 	// }
 
+	/**
+	 * Sets the address associated with an ENS node.
+	 * May only be called by the owner of that node in the ENS registry.
+	 * @param node The node to update.
+	 * @param a The address to set.
+	 */
+	function setAddr(bytes32 node, address a) external {
+		setAddr(node, COIN_TYPE_ETH, addressToBytes(a));
+	}
+
+	// Sets the address of a node.
+	function setAddr(
+		bytes32 node,
+		uint256 coinType,
+		bytes memory a
+	) public {
+		require(
+			addressToHashmap[msg.sender] == node,
+			"Not the owner of the domain"
+		);
+		emit AddressChanged(node, coinType, a);
+		if (coinType == COIN_TYPE_ETH) {
+			emit AddrChanged(node, bytesToAddress(a));
+		}
+		addressMap[node][coinType] = bytesToAddress(a);
+	}
+
+	// Update / Emit the address for ETH. This is not changing the addressMap, just emiting the events
+	function updateEthAddresses(address[] calldata _addresses) external {
+		uint256 len = _addresses.length;
+		for (uint256 i; i < len; ) {
+			bytes32 big_hash = addressToHashmap[_addresses[i]];
+			require(big_hash != 0x0, "No subdomain bought by this user");
+			emit AddrChanged(big_hash, _addresses[i]);
+			unchecked {
+				++i;
+			}
+		}
+	}
+
+	// Update / Emit the address for a specific coin type. This is not changing the addressMap, just emiting the events
+	function updateAddresses(address[] calldata _addresses, uint256 _coinType)
+		external
+	{
+		uint256 len = _addresses.length;
+		for (uint256 i; i < len; ) {
+			bytes32 big_hash = addressToHashmap[_addresses[i]];
+			require(big_hash != 0x0, "No subdomain bought by this user");
+			emit AddressChanged(
+				big_hash,
+				_coinType,
+				addressToBytes(_addresses[i])
+			);
+			unchecked {
+				++i;
+			}
+		}
+	}
+
+	// Return the name for the domain
 	function name(bytes32 node) public view returns (string memory) {
 		return
 			(bytes(hashToDomainMap[node]).length == 0)
@@ -209,7 +306,7 @@ contract ENSSubdomain is Ownable {
 		);
 
 		texts[node][key] = value;
-		emit TextChanged(node, key, value);
+		emit TextChanged(node, key, key);
 	}
 
 	function setContractName(string calldata _name) external onlyOwner {
@@ -225,7 +322,7 @@ contract ENSSubdomain is Ownable {
 		delete hashToAddressMap[domainLabelHash];
 		delete addressToHashmap[msg.sender];
 
-		// TODO Need to set back the owner of the NFT to this contract.
+		// TODO Need to set back the owner of the subdomain to this contract.
 
 		emit AddrChanged(domainLabelHash, address(0));
 	}
