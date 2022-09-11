@@ -18,11 +18,11 @@ contract NFTSubdomain is Ownable {
 
 	IReverseResolver public constant ReverseResolver = IReverseResolver(REVERSE_RESOLVER_ADDRESS);
 	ENS private constant ens = ENS(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
-	IERC721 public constant nft = IERC721(0x4b10701Bfd7BFEdc47d50562b76b436fbB5BdB3B);
-	bytes32 public constant domainHash = 0x524060b540a9ca20b59a94f7b32d64ebdbeedc42dfdc7aac115003633593b492;
+	IERC721 public nft;
+	bytes32 public domainHash;
 	mapping(bytes32 => mapping(string => string)) public texts;
 
-	string public constant domainLabel = 'lilnouns';
+	string public domainLabel;
 
 	mapping(bytes32 => uint256) public hashToIdMap;
 	mapping(uint256 => bytes32) public tokenHashmap;
@@ -33,7 +33,15 @@ contract NFTSubdomain is Ownable {
 
 	event AddrChanged(bytes32 indexed node, address a);
 
-	constructor() {}
+	constructor(
+		address _nftContractAddress,
+		string memory _domainLabel,
+		bytes32 _domainHash
+	) {
+		nft = IERC721(_nftContractAddress);
+		domainLabel = _domainLabel;
+		domainHash = _domainHash;
+	}
 
 	//<interface-functions>
 	function supportsInterface(bytes4 interfaceID) public pure returns (bool) {

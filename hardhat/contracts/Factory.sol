@@ -29,15 +29,15 @@ contract SubdomainFactory is Ownable {
 
 	constructor() {}
 
-	function createNFTContract(address nftContractAddress, string memory domainName) public {
-		bytes32 domainHash = getDomainHash(domainName);
-		NFTSubdomain newBuild = new NFTSubdomain(nftContractAddress, domainName, domainHash);
+	function createNFTContract(address _nftContractAddress, string memory _domainName) public {
+		bytes32 domainHash = getDomainHash(_domainName);
+		NFTSubdomain newBuild = new NFTSubdomain(_nftContractAddress, _domainName, domainHash);
 		nftContracts.push(NFTSubdomainContractsInfo({ subdomain: newBuild, creator: msg.sender }));
 	}
 
-	function createMerkleContract(bytes32 merkleHash, string memory domainName) public {
-		bytes32 domainHash = getDomainHash(domainName);
-		MerkleSubdomain newBuild = new MerkleSubdomain(merkleHash, domainName, domainHash);
+	function createMerkleContract(bytes32 _merkleHash, string memory _domainName) public {
+		bytes32 domainHash = getDomainHash(_domainName);
+		MerkleSubdomain newBuild = new MerkleSubdomain(_merkleHash, _domainName, domainHash);
 		merkleContracts.push(MerkleSubdomainContractsInfo({ subdomain: newBuild, creator: msg.sender }));
 	}
 
