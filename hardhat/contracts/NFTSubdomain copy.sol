@@ -5,17 +5,18 @@
 pragma solidity ^0.8.4;
 
 import '@ensdomains/ens-contracts/contracts/registry/ENS.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import '@openzeppelin/contracts/utils/cryptography/MerkleProof.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/utils/Strings.sol';
 import './IReverseResolver.sol';
 
-contract MerkleSubdomain is Ownable {
+contract NFTSubdomain is Ownable {
 	using Strings for uint256;
 
-	bytes32 merkleHash;
 	bytes32 public domainHash;
 	string public domainLabel;
+	IERC721 public nft;
 
 	address constant REVERSE_RESOLVER_ADDRESS = 0x084b1c3C81545d370f3634392De611CaaBFf8148;
 
@@ -25,6 +26,7 @@ contract MerkleSubdomain is Ownable {
 	mapping(bytes32 => address) public hashToAddressMap;
 	mapping(bytes32 => string) public hashToDomainMap;
 	mapping(address => bytes32) public addressToHashmap;
+	mapping(uint => address) public tokenIdToAddressMap;
 	mapping(bytes32 => mapping(string => string)) public texts;
 
 	event TextChanged(bytes32 indexed node, string indexed indexedKey, string key);
@@ -34,11 +36,11 @@ contract MerkleSubdomain is Ownable {
 	event AddressChanged(bytes32 indexed node, uint256 coinType, bytes newAddress);
 
 	constructor(
-		bytes32 _merkleHash,
+		address _nftContractAddress,
 		string memory _domainLabel,
 		bytes32 _domainHash
 	) {
-		merkleHash = _merkleHash;
+		nft = IERC721(_nftContractAddress);
 		domainLabel = _domainLabel;
 		domainHash = _domainHash;
 	}
@@ -50,6 +52,13 @@ contract MerkleSubdomain is Ownable {
 			interfaceID == 0x59d1d43c || //text
 			interfaceID == 0x691f3431 || //name
 			interfaceID == 0x01ffc9a7; //supportsInterface << [inception]
+	}
+
+	function getDomainForTokenId(uint _tokenId) public view returns (string memory) {
+		require(tokenIdToAddressMap[_tokenId] != address(0), "Domain not found with that tokenId");
+		address _address = tokenIdToAddressMap[_tokenId];
+		bytes32 _hash = addressToHashmap[_address];
+		return hashToDomainMap[_hash];
 	}
 
 	function text(bytes32 node, string calldata key) external view returns (string memory) {
@@ -89,8 +98,24 @@ contract MerkleSubdomain is Ownable {
 	//--------------------------------------------------------------------------------------------//
 
 	//<authorised-functions>
-	function claimSubdomain(string calldata label, bytes32[] calldata proof) public isAuthorised(proof) {
-		require(addressToHashmap[msg.sender] == 0x0, 'Address already claimed subdomain');
+	function claimSubdomain(string calldata label, uint _tokenId) public isNFTOwner(_tokenId) {
+		_claimSubdomain(label, _tokenId);
+	}
+
+	function reclaimSubdomain(string calldata label, uint _tokenId) public isNFTOwner(_tokenId) {
+
+		// Checking with msg.sender since we are already checking if the sender is the owner of the NFT
+		require(tokenIdToAddressMap[_tokenId] != msg.sender, "Can't reclaim a domain after claiming it!");
+
+		// Resetting the older claimed subdomain
+		_resetHash(_tokenId);
+
+		// Claiming the new sub domain
+		_claimSubdomain(label, _tokenId);
+	}
+
+	function _claimSubdomain(string calldata label, uint _tokenId) private {
+		require(tokenIdToAddressMap[_tokenId] == address(0), 'Address already claimed subdomain');
 
 		bytes32 encoded_label = keccak256(abi.encodePacked(label));
 		bytes32 big_hash = keccak256(abi.encodePacked(domainHash, encoded_label));
@@ -104,18 +129,21 @@ contract MerkleSubdomain is Ownable {
 		hashToAddressMap[big_hash] = msg.sender;
 		addressToHashmap[msg.sender] = big_hash;
 		hashToDomainMap[big_hash] = label;
+		tokenIdToAddressMap[_tokenId] = msg.sender;
 
 		emit RegisterSubdomain(msg.sender, label);
 		emit AddrChanged(big_hash, msg.sender);
+
 	}
 
 	function setText(
 		bytes32 node,
 		string calldata key,
 		string calldata value,
-		bytes32[] calldata proof
-	) external isAuthorised(proof) {
+		uint _tokenId
+	) external isAuthorised(_tokenId) {
 		address currentAddress = hashToAddressMap[node];
+
 		require(currentAddress == msg.sender, "Can't change someone else subdomain text");
 		require(addressToHashmap[currentAddress] != 0x0, 'Invalid address');
 
@@ -128,22 +156,25 @@ contract MerkleSubdomain is Ownable {
 		ReverseResolver.setName(_name);
 	}
 
-	// @abhishek not sure what's the use for this
-	function resetHash(bytes32[] calldata proof) public isAuthorised(proof) {
-		bytes32 currDomainHash = addressToHashmap[msg.sender];
+	function resetHash(uint _tokenId) public isAuthorised(_tokenId) {
+		_resetHash(_tokenId);
+	}
+
+	function _resetHash(uint _tokenId) private {
+		address _address = tokenIdToAddressMap[_tokenId];
+		bytes32 currDomainHash = addressToHashmap[_address];
 		require(ens.recordExists(currDomainHash), 'Sub-domain does not exist');
 
 		//reset domain mappings
 		delete hashToDomainMap[currDomainHash];
 		delete hashToAddressMap[currDomainHash];
 		delete addressToHashmap[msg.sender];
+		delete tokenIdToAddressMap[_tokenId];
 
 		emit AddrChanged(currDomainHash, address(0));
 	}
 
-	function updateMerkleHash(bytes32 _merkleHash) public onlyOwner {
-		merkleHash = _merkleHash;
-	}
+	
 
 	//</authorised-functions>
 
@@ -151,14 +182,17 @@ contract MerkleSubdomain is Ownable {
 
 	// <owner-functions>
 
-	function isValid(bytes32[] calldata proof) public view returns (bool) {
-		return MerkleProof.verify(proof, merkleHash, keccak256(abi.encodePacked(msg.sender)));
-	}
-
-	modifier isAuthorised(bytes32[] calldata proof) {
-		require(isValid(proof), 'Unauthorised user');
+	modifier isAuthorised(uint _tokenId) {
+		require(nft.ownerOf(_tokenId) == msg.sender, 'Unauthorised user');
+		require(nft.ownerOf(_tokenId) == tokenIdToAddressMap[_tokenId], 'You need to claim the sub-domain first!');
 		_;
 	}
+
+	modifier isNFTOwner(uint _tokenId) {
+		require(nft.ownerOf(_tokenId) == msg.sender, 'Unauthorised user');
+		_;
+	}
+	
 
 	// </owner-functions>
 }
